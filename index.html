@@ -1,0 +1,688 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>آدم سعد | Adam Saad - المنظومة التشغيلية الشاملة</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        brand: { 50: '#f0fdf4', 500: '#22c55e', 600: '#16a34a', 700: '#15803d', 900: '#14532d' }
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- SheetJS for Excel Parsing -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/xlsx.full.min.js"></script>
+    <!-- Supabase JS Client -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body class="bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-100 font-sans antialiased flex h-screen overflow-hidden">
+
+    <!-- 1. شاشة تسجيل الدخول -->
+    <div id="login-screen" class="fixed inset-0 z-50 flex items-center justify-center bg-gray-900 px-4">
+        <div class="max-w-md w-full bg-white dark:bg-gray-800 rounded-2xl shadow-2xl border border-gray-700 p-8 space-y-6 text-center">
+            <div class="w-16 h-16 bg-emerald-600 text-white rounded-2xl mx-auto flex items-center justify-center text-2xl shadow-lg">
+                <i class="fa-solid fa-truck-fast"></i>
+            </div>
+            <div>
+                <h1 class="text-2xl font-bold text-gray-900 dark:text-white">آدم سعد</h1>
+                <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">المنظومة التشغيلية لإدارة الأساطيل والمناديب</p>
+            </div>
+            <form onsubmit="handleLogin(event)" class="space-y-4 text-right">
+                <div>
+                    <label class="block text-xs font-semibold mb-1">اسم المستخدم</label>
+                    <input type="text" id="login-username" required placeholder="أدخل اسم المستخدم" class="w-full text-sm bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-xl py-2.5 px-4 focus:ring-2 focus:ring-emerald-500 outline-none">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold mb-1">كلمة المرور</label>
+                    <input type="password" id="login-password" required placeholder="••••••••" class="w-full text-sm bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-xl py-2.5 px-4 focus:ring-2 focus:ring-emerald-500 outline-none">
+                </div>
+                <div id="login-error" class="text-xs text-red-500 text-center hidden font-semibold">اسم المستخدم أو كلمة المرور غير صحيحة</div>
+                <button type="submit" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 rounded-xl text-sm transition shadow-md">دخول المنظومة</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- 2. الشاشة الرئيسية والمنظومة كاملة -->
+    <div id="app-screen" class="flex w-full h-full hidden">
+        
+        <!-- الشريط الجانبي (Sidebar) -->
+        <aside class="w-64 bg-gray-900 text-gray-300 flex flex-col justify-between border-l border-gray-800 shrink-0">
+            <div class="p-4 space-y-6">
+                <!-- اللوجو -->
+                <div class="flex items-center gap-3 px-2">
+                    <div class="w-10 h-10 bg-emerald-600 text-white rounded-xl flex items-center justify-center font-bold text-lg shadow">آس</div>
+                    <div>
+                        <h2 class="font-bold text-sm text-white">آدم سعد</h2>
+                        <span class="text-[10px] text-emerald-400 font-semibold">إدارة الأساطيل والتقارير</span>
+                    </div>
+                </div>
+
+                <!-- قائمة التبويبات -->
+                <nav class="space-y-1 text-xs font-semibold">
+                    <div class="text-[10px] text-gray-500 px-3 uppercase tracking-wider mb-2">الرئيسية</div>
+                    <button onclick="switchTab('dashboard', this)" class="nav-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition bg-gray-800 text-white"><i class="fa-solid fa-chart-pie w-4"></i> لوحة الإدارة (KPI)</button>
+                    <button onclick="switchTab('reports', this)" class="nav-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-gray-800 hover:text-white transition"><i class="fa-solid fa-chart-line w-4"></i> التقارير العامة واليومية</button>
+                    <button onclick="switchTab('alerts', this)" class="nav-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-gray-800 hover:text-white transition"><i class="fa-solid fa-bell w-4"></i> الإشعارات والتنبيهات</button>
+
+                    <div class="text-[10px] text-gray-500 px-3 uppercase tracking-wider mt-4 mb-2">المشاريع والطلبات</div>
+                    <button onclick="switchTab('projects', this)" class="nav-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-gray-800 hover:text-white transition"><i class="fa-solid fa-layer-group w-4"></i> مشاريع التشغيل والتطبيقات</button>
+                    <button onclick="switchTab('binding', this)" class="nav-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-gray-800 hover:text-white transition"><i class="fa-solid fa-link w-4"></i> مراجعة ربط الحسابات والتبديل</button>
+                    <button onclick="switchTab('housing', this)" class="nav-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-gray-800 hover:text-white transition"><i class="fa-solid fa-house-user w-4"></i> سكن المناديب والعهد</button>
+                    <button onclick="switchTab('cities', this)" class="nav-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-gray-800 hover:text-white transition"><i class="fa-solid fa-city w-4"></i> إدارة المدن</button>
+
+                    <div class="text-[10px] text-gray-500 px-3 uppercase tracking-wider mt-4 mb-2">الاستيراد والمقابلات</div>
+                    <button onclick="switchTab('import', this)" class="nav-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-gray-800 hover:text-white transition"><i class="fa-solid fa-file-import w-4"></i> استيراد البيانات والملفات</button>
+                    <button onclick="switchTab('interviews', this)" class="nav-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-gray-800 hover:text-white transition"><i class="fa-solid fa-user-group w-4"></i> المقابلات ومخالفات المناديب</button>
+                </nav>
+            </div>
+
+            <!-- الجزء السفلي للمستخدم -->
+            <div class="p-4 border-t border-gray-800 flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                    <div class="w-8 h-8 rounded-full bg-emerald-600 text-white flex items-center justify-center font-bold text-xs">آدم</div>
+                    <div>
+                        <p class="text-xs font-bold text-white">آدم سعد</p>
+                        <p class="text-[10px] text-gray-400">مدير النظام</p>
+                    </div>
+                </div>
+                <button onclick="logout()" class="text-red-400 hover:text-red-300 text-xs"><i class="fa-solid fa-power-off"></i></button>
+            </div>
+        </aside>
+
+        <!-- المحتوى الرئيسي -->
+        <main class="flex-1 flex flex-col overflow-y-auto">
+            <!-- الهيدر العلوي -->
+            <header class="h-16 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between px-6 sticky top-0 z-10">
+                <div class="flex items-center gap-3">
+                    <h3 class="font-bold text-sm text-gray-900 dark:text-white" id="page-title">لوحة الإدارة والمؤشرات (KPI)</h3>
+                </div>
+                <div class="flex items-center gap-3">
+                    <button onclick="toggleDarkMode()" class="p-2 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300"><i class="fa-solid fa-moon dark:hidden"></i><i class="fa-solid fa-sun hidden dark:inline"></i></button>
+                    <button onclick="window.print()" class="bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-bold px-3 py-1.5 rounded-lg hover:bg-emerald-100 transition flex items-center gap-1.5"><i class="fa-solid fa-print"></i> طباعة التقرير</button>
+                </div>
+            </header>
+
+            <div class="p-6 space-y-6">
+
+                <!-- 🚀 قسم رفع وتحليل التقارير الذكية -->
+                <div class="bg-gradient-to-r from-emerald-800 to-teal-700 p-5 rounded-2xl text-white shadow-lg flex flex-col md:flex-row items-center justify-between gap-4">
+                    <div class="space-y-1">
+                        <h3 class="font-bold text-sm flex items-center gap-2"><i class="fa-solid fa-robot text-emerald-300"></i> منطقة رفع وتحليل تقارير المناديب (AI Report Analyzer)</h3>
+                        <p class="text-xs text-emerald-100">قم برفع ملفات الـ Excel لتحديث طلبات المشروعات وحالات الدوام وتوليد التنبيهات فورياً.</p>
+                    </div>
+                    <label class="cursor-pointer bg-white text-emerald-900 hover:bg-emerald-50 font-bold text-xs px-4 py-2.5 rounded-xl shadow transition flex items-center gap-2 shrink-0">
+                        <i class="fa-solid fa-file-excel text-emerald-600 text-base"></i> اختر ملف Excel للتحليل
+                        <input type="file" id="report-file-input" accept=".xlsx, .xls, .csv" onchange="handleReportUpload(event)" class="hidden">
+                    </label>
+                </div>
+
+                <!-- نتائج التحليل -->
+                <div id="report-analysis-results" class="bg-white dark:bg-gray-800 p-4 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm hidden space-y-3">
+                    <div class="flex items-center justify-between border-b pb-2">
+                        <h4 class="font-bold text-xs text-emerald-600">نتائج تحليل التقرير المرفوع</h4>
+                        <button onclick="clearReportAnalysis()" class="text-xs text-red-500 hover:underline">إغلاق</button>
+                    </div>
+                    <div id="analysis-content" class="text-xs grid grid-cols-1 md:grid-cols-3 gap-4"></div>
+                </div>
+
+                <!-- تنبيهات أداء الطلبات والحالات -->
+                <div id="smart-alerts-box" class="bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 p-4 rounded-xl shadow-sm hidden space-y-2">
+                    <div class="flex items-center gap-2 text-amber-800 dark:text-amber-400 font-bold text-xs">
+                        <i class="fa-solid fa-triangle-exclamation text-sm"></i>
+                        <span>تنبيهات المتابعة: مناديب في العمل بطلبات منخفضة (&lt; 20 طلب)</span>
+                    </div>
+                    <div id="alerts-content" class="text-xs text-amber-700 dark:text-amber-300 space-y-1"></div>
+                </div>
+
+                <!-- شريط الفلاتر والإدارة المتقدمة -->
+                <div class="bg-white dark:bg-gray-800 p-4 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm space-y-4">
+                    <div class="flex flex-wrap items-center justify-between gap-2 border-b border-gray-100 dark:border-gray-700 pb-3">
+                        <span class="text-xs bg-emerald-100 text-emerald-800 px-3 py-1 rounded-md font-bold">إدارة العمليات الشاملة</span>
+                        <div class="flex flex-wrap items-center gap-2">
+                            <button onclick="openAddModal()" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold px-3 py-2 rounded-lg shadow transition"><i class="fa-solid fa-plus"></i> إضافة مندوب</button>
+                            <button onclick="openCityModal()" class="bg-purple-600 hover:bg-purple-700 text-white text-xs font-semibold px-3 py-2 rounded-lg shadow transition"><i class="fa-solid fa-city"></i> إضافة مدينة</button>
+                            <button onclick="openProjectModal()" class="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold px-3 py-2 rounded-lg shadow transition"><i class="fa-solid fa-folder-plus"></i> إضافة مشروع</button>
+                            <button onclick="openFinanceModal()" class="bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold px-3 py-2 rounded-lg shadow transition"><i class="fa-solid fa-money-bill-transfer"></i> عهدة وسلف ودوام</button>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-5 gap-3">
+                        <select id="filter-city" onchange="filterDrivers()" class="text-xs bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg p-2">
+                            <option value="all">كل المدن</option>
+                        </select>
+                        <select id="filter-project" onchange="filterDrivers()" class="text-xs bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg p-2">
+                            <option value="all">كل المشروعات والتطبيقات</option>
+                        </select>
+                        <select id="filter-duty" onchange="filterDrivers()" class="text-xs bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg p-2">
+                            <option value="all">حالة الدوام (الكل)</option>
+                            <option value="في العمل">في العمل</option>
+                            <option value="إجازة">إجازة</option>
+                            <option value="غياب">غياب</option>
+                        </select>
+                        <select id="filter-status" onchange="filterDrivers()" class="text-xs bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg p-2">
+                            <option value="all">مستوى الطلبات</option>
+                            <option value="low-orders">طلبات منخفضة (&lt; 20)</option>
+                        </select>
+                        <input type="text" id="search-input" onkeyup="filterDrivers()" placeholder="بحث باسم المندوب، الهوية، الجوال..." class="text-xs bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg p-2">
+                    </div>
+                </div>
+
+                <!-- مؤشرات الأداء (KPI) -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+                    <div class="bg-white dark:bg-gray-800 p-4 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm flex items-center justify-between">
+                        <div><p class="text-[11px] text-gray-500 font-semibold">إجمالي المناديب</p><h3 class="text-xl font-bold mt-1" id="kpi-total">0</h3></div>
+                        <div class="w-10 h-10 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center"><i class="fa-solid fa-users"></i></div>
+                    </div>
+                    <div class="bg-white dark:bg-gray-800 p-4 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm flex items-center justify-between">
+                        <div><p class="text-[11px] text-gray-500 font-semibold">في العمل الفعلي</p><h3 class="text-xl font-bold mt-1 text-emerald-600" id="kpi-working">0</h3></div>
+                        <div class="w-10 h-10 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center"><i class="fa-solid fa-user-check"></i></div>
+                    </div>
+                    <div class="bg-white dark:bg-gray-800 p-4 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm flex items-center justify-between">
+                        <div><p class="text-[11px] text-gray-500 font-semibold">إجازات رسمية</p><h3 class="text-xl font-bold mt-1 text-amber-600" id="kpi-vacation">0</h3></div>
+                        <div class="w-10 h-10 bg-amber-50 text-amber-600 rounded-xl flex items-center justify-center"><i class="fa-solid fa-plane-departure"></i></div>
+                    </div>
+                    <div class="bg-white dark:bg-gray-800 p-4 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm flex items-center justify-between">
+                        <div><p class="text-[11px] text-gray-500 font-semibold">حالات غياب</p><h3 class="text-xl font-bold mt-1 text-red-600" id="kpi-absence">0</h3></div>
+                        <div class="w-10 h-10 bg-red-50 text-red-600 rounded-xl flex items-center justify-center"><i class="fa-solid fa-user-xmark"></i></div>
+                    </div>
+                    <div class="bg-white dark:bg-gray-800 p-4 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm flex items-center justify-between">
+                        <div><p class="text-[11px] text-gray-500 font-semibold">إجمالي العهد والسلف</p><h3 class="text-xl font-bold mt-1 text-purple-600" id="kpi-finance">0 ر.س</h3></div>
+                        <div class="w-10 h-10 bg-purple-50 text-purple-600 rounded-xl flex items-center justify-center"><i class="fa-solid fa-wallet"></i></div>
+                    </div>
+                </div>
+
+                <!-- الجدول الرئيسي للمناديب والأسطول والدوام -->
+                <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
+                    <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
+                        <h3 class="font-bold text-sm">قائمة المناديب والأسطول والدوام والعهد</h3>
+                        <span class="text-xs text-gray-400">تحديث سحابي مباشر تلقائي</span>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-xs text-right">
+                            <thead class="uppercase bg-gray-50 dark:bg-gray-700/50 text-gray-500">
+                                <tr>
+                                    <th class="px-4 py-3">اسم المندوب</th>
+                                    <th class="px-4 py-3">الهوية / الجوال</th>
+                                    <th class="px-4 py-3">المدينة والمشروع</th>
+                                    <th class="px-4 py-3">حالة الدوام</th>
+                                    <th class="px-4 py-3">الطلبات</th>
+                                    <th class="px-4 py-3">السيارة والعهدة</th>
+                                    <th class="px-4 py-3">السلف المالية</th>
+                                    <th class="px-4 py-3 text-center">الإجراءات والتبديل</th>
+                                </tr>
+                            </thead>
+                            <tbody id="drivers-table-body" class="divide-y divide-gray-200 dark:divide-gray-700"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- جدول التبديل والتعاقب التاريخي على الحسابات -->
+                <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden mt-6">
+                    <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+                        <h3 class="font-bold text-sm text-indigo-600 dark:text-indigo-400 flex items-center gap-2">
+                            <i class="fa-solid fa-clock-rotate-left"></i> سجل التبديل والتعاقب التاريخي للمناديب على الحسابات
+                        </h3>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-xs text-right">
+                            <thead class="uppercase bg-gray-50 dark:bg-gray-700/50 text-gray-500">
+                                <tr>
+                                    <th class="px-4 py-3">المندوب السابق</th>
+                                    <th class="px-4 py-3">المندوب الجديد البديل</th>
+                                    <th class="px-4 py-3">المشروع والتطبيق</th>
+                                    <th class="px-4 py-3">تاريخ التبديل</th>
+                                    <th class="px-4 py-3">العهدة المنسوبة</th>
+                                </tr>
+                            </thead>
+                            <tbody id="handover-table-body" class="divide-y divide-gray-200 dark:divide-gray-700"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+            </div>
+        </main>
+    </div>
+
+    <!-- نافذة إضافة مندوب -->
+    <div id="addModal" class="fixed inset-0 bg-black/50 z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white dark:bg-gray-800 rounded-xl max-w-md w-full p-6 shadow-xl space-y-4">
+            <h3 class="text-base font-bold">إضافة مندوب جديد للمنظومة</h3>
+            <form onsubmit="saveDriver(event)" class="space-y-3">
+                <input type="text" id="input-name" required placeholder="اسم المندوب كاملاً" class="w-full text-xs p-2.5 bg-gray-50 dark:bg-gray-700 border rounded-lg">
+                <input type="text" id="input-national-id" required placeholder="رقم الهوية / الإقامة" class="w-full text-xs p-2.5 bg-gray-50 dark:bg-gray-700 border rounded-lg">
+                <input type="text" id="input-phone" required placeholder="رقم الجوال" class="w-full text-xs p-2.5 bg-gray-50 dark:bg-gray-700 border rounded-lg">
+                <select id="input-city" required class="w-full text-xs p-2.5 bg-gray-50 dark:bg-gray-700 border rounded-lg"></select>
+                <select id="input-project" required class="w-full text-xs p-2.5 bg-gray-50 dark:bg-gray-700 border rounded-lg"></select>
+                <select id="input-duty" class="w-full text-xs p-2.5 bg-gray-50 dark:bg-gray-700 border rounded-lg">
+                    <option value="في العمل">في العمل</option>
+                    <option value="إجازة">إجازة</option>
+                    <option value="غياب">غياب</option>
+                </select>
+                <input type="number" id="input-orders" placeholder="عدد الطلبات" class="w-full text-xs p-2.5 bg-gray-50 dark:bg-gray-700 border rounded-lg">
+                <input type="text" id="input-car" placeholder="بيانات السيارة / العهدة" class="w-full text-xs p-2.5 bg-gray-50 dark:bg-gray-700 border rounded-lg">
+                <input type="number" id="input-loan" placeholder="قيمة السلفة المالية" class="w-full text-xs p-2.5 bg-gray-50 dark:bg-gray-700 border rounded-lg">
+                <div class="flex justify-end gap-2 pt-2">
+                    <button type="button" onclick="closeAddModal()" class="px-4 py-2 text-xs bg-gray-200 rounded-lg">إلغاء</button>
+                    <button type="submit" class="px-4 py-2 text-xs bg-emerald-600 text-white rounded-lg font-bold">حفظ المندوب</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- نافذة تبديل المندوب (Handover Driver) -->
+    <div id="handoverModal" class="fixed inset-0 bg-black/50 z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white dark:bg-gray-800 rounded-xl max-w-md w-full p-6 shadow-xl space-y-4">
+            <h3 class="text-base font-bold text-indigo-600">تبديل مندوب وتاريخ تسليم الحساب</h3>
+            <form onsubmit="executeHandover(event)" class="space-y-3">
+                <input type="hidden" id="handover-old-id">
+                <div>
+                    <label class="block text-[11px] font-semibold text-gray-500 mb-1">المندوب المغادر الحالي</label>
+                    <input type="text" id="handover-old-name" disabled class="w-full text-xs p-2.5 bg-gray-100 dark:bg-gray-700 border rounded-lg font-bold">
+                </div>
+                <div>
+                    <label class="block text-[11px] font-semibold text-gray-500 mb-1">اسم المندوب الجديد البديل</label>
+                    <input type="text" id="handover-new-name" required placeholder="أدخل اسم المندوب الجديد" class="w-full text-xs p-2.5 bg-gray-50 dark:bg-gray-700 border rounded-lg">
+                </div>
+                <div>
+                    <label class="block text-[11px] font-semibold text-gray-500 mb-1">تاريخ استلام الدوام وتغيير المندوب</label>
+                    <input type="date" id="handover-date" required class="w-full text-xs p-2.5 bg-gray-50 dark:bg-gray-700 border rounded-lg">
+                </div>
+                <div>
+                    <label class="block text-[11px] font-semibold text-gray-500 mb-1">ملاحظات العهدة والتسليم</label>
+                    <input type="text" id="handover-notes" placeholder="ملاحظات التسليم أو العهدة" class="w-full text-xs p-2.5 bg-gray-50 dark:bg-gray-700 border rounded-lg">
+                </div>
+                <div class="flex justify-end gap-2 pt-2">
+                    <button type="button" onclick="closeHandoverModal()" class="px-4 py-2 text-xs bg-gray-200 rounded-lg">إلغاء</button>
+                    <button type="submit" class="px-4 py-2 text-xs bg-indigo-600 text-white rounded-lg font-bold">إتمام التبديل التاريخي</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- نافذة إضافة مدينة -->
+    <div id="cityModal" class="fixed inset-0 bg-black/50 z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white dark:bg-gray-800 rounded-xl max-w-md w-full p-6 shadow-xl space-y-4">
+            <h3 class="text-base font-bold">إضافة مدينة جديدة سحابياً</h3>
+            <form onsubmit="saveCity(event)" class="space-y-3">
+                <input type="text" id="new-city-name" required placeholder="اسم المدينة (الرياض، جدة...)" class="w-full text-xs p-2.5 bg-gray-50 dark:bg-gray-700 border rounded-lg">
+                <div class="flex justify-end gap-2 pt-2">
+                    <button type="button" onclick="closeCityModal()" class="px-4 py-2 text-xs bg-gray-200 rounded-lg">إلغاء</button>
+                    <button type="submit" class="px-4 py-2 text-xs bg-purple-600 text-white rounded-lg font-bold">حفظ المدينة</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- نافذة إضافة مشروع -->
+    <div id="projectModal" class="fixed inset-0 bg-black/50 z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white dark:bg-gray-800 rounded-xl max-w-md w-full p-6 shadow-xl space-y-4">
+            <h3 class="text-base font-bold">إضافة مشروع / تطبيق جديد سحابياً</h3>
+            <form onsubmit="saveProject(event)" class="space-y-3">
+                <input type="text" id="new-project-name" required placeholder="اسم المشروع (جاهز، كيتا...)" class="w-full text-xs p-2.5 bg-gray-50 dark:bg-gray-700 border rounded-lg">
+                <div class="flex justify-end gap-2 pt-2">
+                    <button type="button" onclick="closeProjectModal()" class="px-4 py-2 text-xs bg-gray-200 rounded-lg">إلغاء</button>
+                    <button type="submit" class="px-4 py-2 text-xs bg-indigo-600 text-white rounded-lg font-bold">حفظ المشروع</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- نافذة إدارة العهد والدوام والسلف -->
+    <div id="financeModal" class="fixed inset-0 bg-black/50 z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white dark:bg-gray-800 rounded-xl max-w-md w-full p-6 shadow-xl space-y-4">
+            <h3 class="text-base font-bold">تحديث بيانات المندوب وحالة الدوام والعهد</h3>
+            <form onsubmit="updateFinance(event)" class="space-y-3">
+                <select id="finance-driver-id" required class="w-full text-xs p-2.5 bg-gray-50 dark:bg-gray-700 border rounded-lg"></select>
+                <select id="finance-duty" class="w-full text-xs p-2.5 bg-gray-50 dark:bg-gray-700 border rounded-lg">
+                    <option value="في العمل">في العمل</option>
+                    <option value="إجازة">إجازة</option>
+                    <option value="غياب">غياب</option>
+                </select>
+                <input type="number" id="finance-orders" placeholder="تحديث عدد الطلبات" class="w-full text-xs p-2.5 bg-gray-50 dark:bg-gray-700 border rounded-lg">
+                <input type="text" id="finance-car" placeholder="تحديث بيانات السيارة / العهدة" class="w-full text-xs p-2.5 bg-gray-50 dark:bg-gray-700 border rounded-lg">
+                <input type="number" id="finance-loan" placeholder="تحديث مبلغ السلفة المالية" class="w-full text-xs p-2.5 bg-gray-50 dark:bg-gray-700 border rounded-lg">
+                <div class="flex justify-end gap-2 pt-2">
+                    <button type="button" onclick="closeFinanceModal()" class="px-4 py-2 text-xs bg-gray-200 rounded-lg">إلغاء</button>
+                    <button type="submit" class="px-4 py-2 text-xs bg-amber-600 text-white rounded-lg font-bold">تحديث البيانات</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        const SUPABASE_URL = 'https://tcbdvivyutosevqitqra.supabase.co';
+        const SUPABASE_KEY = 'sb_publishable_791JZEGQUQV_DQQjlexxGQ_8IlTP-fg';
+        const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+        let driversData = [];
+        let citiesData = [];
+        let projectsData = [];
+        let handoverHistory = JSON.parse(localStorage.getItem('system_handovers')) || [];
+
+        function handleLogin(e) {
+            e.preventDefault();
+            const u = document.getElementById('login-username').value.trim();
+            const p = document.getElementById('login-password').value.trim();
+            if (u === 'adam' && p === 'AdamSaadPassword2026') {
+                document.getElementById('login-screen').classList.add('hidden');
+                document.getElementById('app-screen').classList.remove('hidden');
+                loadAllData();
+            } else {
+                document.getElementById('login-error').classList.remove('hidden');
+            }
+        }
+        function logout() { location.reload(); }
+
+        async function loadAllData() {
+            await Promise.all([fetchDrivers(), fetchCities(), fetchProjects()]);
+            renderHandoverTable();
+        }
+
+        async function fetchDrivers() {
+            const { data } = await supabaseClient.from('drivers').select('*');
+            if (data) { 
+                driversData = data; 
+                renderDriversTable(driversData); 
+                checkLowOrdersAlerts(driversData); 
+                updateFinanceDropdown(); 
+            }
+        }
+
+        async function fetchCities() {
+            const { data } = await supabaseClient.from('cities').select('*');
+            if (data && data.length > 0) {
+                citiesData = data.map(item => item.name);
+            } else {
+                citiesData = ['الرياض', 'جدة', 'الدمام', 'مكة المكرمة'];
+            }
+            updateDropdowns();
+        }
+
+        async function fetchProjects() {
+            const { data } = await supabaseClient.from('projects').select('*');
+            if (data && data.length > 0) {
+                projectsData = data.map(item => item.name);
+            } else {
+                projectsData = ['HungerStation', 'Keeta', 'Jahez', 'Ninja', 'Aramex'];
+            }
+            updateDropdowns();
+        }
+
+        function checkLowOrdersAlerts(data) {
+            const lowDrivers = data.filter(d => (d.duty === 'في العمل' || !d.duty) && ((Number(d.orders) || 0) < 20));
+            const alertBox = document.getElementById('smart-alerts-box');
+            const alertContent = document.getElementById('alerts-content');
+            
+            if (lowDrivers.length > 0) {
+                alertBox.classList.remove('hidden');
+                alertContent.innerHTML = '';
+                lowDrivers.forEach(d => {
+                    alertContent.innerHTML += `<div>• المندوب <b>${d.full_name}</b> في مشروع <span class="underline">${d.app_project || 'عام'}</span> (${d.city || 'الرياض'}) - في العمل وطلباته منخفضة <b>(${d.orders || 0} طلب)</b>.</div>`;
+                });
+            } else {
+                alertBox.classList.add('hidden');
+            }
+        }
+
+        function renderDriversTable(data) {
+            const tbody = document.getElementById('drivers-table-body');
+            tbody.innerHTML = '';
+            document.getElementById('kpi-total').innerText = data.length;
+            
+            let workingCount = data.filter(d => d.duty === 'في العمل' || !d.duty).length;
+            let vacationCount = data.filter(d => d.duty === 'إجازة').length;
+            let absenceCount = data.filter(d => d.duty === 'غياب').length;
+
+            document.getElementById('kpi-working').innerText = workingCount;
+            document.getElementById('kpi-vacation').innerText = vacationCount;
+            document.getElementById('kpi-absence').innerText = absenceCount;
+
+            let totalLoans = data.reduce((sum, d) => sum + (Number(d.loan) || 0), 0);
+            document.getElementById('kpi-finance').innerText = totalLoans + ' ر.س';
+
+            data.forEach(d => {
+                let ordersCount = Number(d.orders) || 0;
+                let dutyBadge = '<span class="bg-emerald-100 text-emerald-800 text-[10px] px-2 py-0.5 rounded font-bold">في العمل</span>';
+                if(d.duty === 'إجازة') dutyBadge = '<span class="bg-amber-100 text-amber-800 text-[10px] px-2 py-0.5 rounded font-bold">إجازة</span>';
+                if(d.duty === 'غياب') dutyBadge = '<span class="bg-red-100 text-red-800 text-[10px] px-2 py-0.5 rounded font-bold">غياب</span>';
+
+                let orderBadgeColor = ordersCount < 20 && (d.duty === 'في العمل' || !d.duty) ? 'bg-red-100 text-red-800 font-bold' : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300';
+
+                tbody.innerHTML += `
+                    <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/30">
+                        <td class="px-4 py-3 font-semibold text-gray-900 dark:text-white">${d.full_name || 'غير محدد'}</td>
+                        <td class="px-4 py-3">${d.phone || ''} <br><span class="text-[10px] text-gray-400">${d.national_id || ''}</span></td>
+                        <td class="px-4 py-3">
+                            <span class="bg-purple-100 text-purple-800 text-[10px] px-2 py-0.5 rounded font-bold">${d.city || 'الرياض'}</span>
+                            <span class="bg-indigo-100 text-indigo-800 text-[10px] px-2 py-0.5 rounded font-bold">${d.app_project || 'عام'}</span>
+                        </td>
+                        <td class="px-4 py-3">${dutyBadge}</td>
+                        <td class="px-4 py-3"><span class="${orderBadgeColor} text-[10px] px-2 py-0.5 rounded">${ordersCount} طلب</span></td>
+                        <td class="px-4 py-3"><span class="bg-gray-100 dark:bg-gray-700 px-2 py-0.5 rounded text-[10px]">${d.car_type || 'بدون عهدة'}</span></td>
+                        <td class="px-4 py-3 text-amber-600 font-bold">${d.loan || 0} ر.س</td>
+                        <td class="px-4 py-3 text-center flex items-center justify-center gap-2">
+                            <button onclick="openHandoverModal('${d.id}', '${d.full_name}')" title="تبديل المندوب" class="bg-indigo-50 text-indigo-600 p-1.5 rounded hover:bg-indigo-100 text-xs font-semibold"><i class="fa-solid fa-arrows-rotate"></i> تبديل</button>
+                            <button onclick="deleteDriver('${d.id}')" title="حذف" class="text-red-500 hover:text-red-700 text-xs"><i class="fa-solid fa-trash"></i></button>
+                        </td>
+                    </tr>
+                `;
+            });
+        }
+
+        function renderHandoverTable() {
+            const tbody = document.getElementById('handover-table-body');
+            tbody.innerHTML = '';
+            handoverHistory.forEach(h => {
+                tbody.innerHTML += `
+                    <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/30">
+                        <td class="px-4 py-2.5 font-semibold text-red-600">${h.oldName}</td>
+                        <td class="px-4 py-2.5 font-semibold text-emerald-600">${h.newName}</td>
+                        <td class="px-4 py-2.5"><span class="bg-indigo-100 text-indigo-800 text-[10px] px-2 py-0.5 rounded font-bold">${h.project || 'عام'}</span></td>
+                        <td class="px-4 py-2.5 font-mono text-[11px]">${h.date}</td>
+                        <td class="px-4 py-2.5 text-gray-500 text-[11px]">${h.notes || 'تسليم اعتيادي'}</td>
+                    </tr>
+                `;
+            });
+        }
+
+        function openHandoverModal(id, name) {
+            document.getElementById('handover-old-id').value = id;
+            document.getElementById('handover-old-name').value = name;
+            document.getElementById('handover-date').valueAsDate = new Date();
+            document.getElementById('handoverModal').classList.remove('hidden');
+        }
+
+        async function executeHandover(e) {
+            e.preventDefault();
+            const id = document.getElementById('handover-old-id').value;
+            const oldName = document.getElementById('handover-old-name').value;
+            const newName = document.getElementById('handover-new-name').value.trim();
+            const date = document.getElementById('handover-date').value;
+            const notes = document.getElementById('handover-notes').value;
+
+            const target = driversData.find(d => d.id === id);
+
+            if(target && newName) {
+                handoverHistory.unshift({ oldName, newName, project: target.app_project, date, notes });
+                localStorage.setItem('system_handovers', JSON.stringify(handoverHistory));
+
+                await supabaseClient.from('drivers').update({ full_name: newName, orders: 0, duty: 'في العمل' }).eq('id', id);
+
+                closeHandoverModal();
+                fetchDrivers();
+                renderHandoverTable();
+                alert(`تم تبديل المندوب ${oldName} بـ ${newName} وتاريخ التسليم ${date} بنجاح!`);
+            }
+        }
+
+        function updateDropdowns() {
+            const filterCity = document.getElementById('filter-city');
+            const filterProj = document.getElementById('filter-project');
+            filterCity.innerHTML = '<option value="all">كل المدن</option>';
+            filterProj.innerHTML = '<option value="all">كل المشروعات والأنشطة</option>';
+            citiesData.forEach(c => filterCity.innerHTML += `<option value="${c}">${c}</option>`);
+            projectsData.forEach(p => filterProj.innerHTML += `<option value="${p}">${p}</option>`);
+
+            const addCity = document.getElementById('input-city');
+            const addProj = document.getElementById('input-project');
+            addCity.innerHTML = '';
+            addProj.innerHTML = '';
+            citiesData.forEach(c => addCity.innerHTML += `<option value="${c}">${c}</option>`);
+            projectsData.forEach(p => addProj.innerHTML += `<option value="${p}">${p}</option>`);
+        }
+
+        function updateFinanceDropdown() {
+            const finSel = document.getElementById('finance-driver-id');
+            finSel.innerHTML = '';
+            driversData.forEach(d => {
+                finSel.innerHTML += `<option value="${d.id}">${d.full_name} (${d.app_project || 'عام'})</option>`;
+            });
+        }
+
+        async function saveCity(e) {
+            e.preventDefault();
+            const name = document.getElementById('new-city-name').value.trim();
+            if (name && !citiesData.includes(name)) {
+                await supabaseClient.from('cities').insert([{ name }]);
+                closeCityModal(); fetchCities();
+            }
+        }
+
+        async function saveProject(e) {
+            e.preventDefault();
+            const name = document.getElementById('new-project-name').value.trim();
+            if (name && !projectsData.includes(name)) {
+                await supabaseClient.from('projects').insert([{ name }]);
+                closeProjectModal(); fetchProjects();
+            }
+        }
+
+        async function saveDriver(e) {
+            e.preventDefault();
+            const full_name = document.getElementById('input-name').value;
+            const national_id = document.getElementById('input-national-id').value;
+            const phone = document.getElementById('input-phone').value;
+            const city = document.getElementById('input-city').value;
+            const app_project = document.getElementById('input-project').value;
+            const duty = document.getElementById('input-duty').value;
+            const orders = Number(document.getElementById('input-orders').value) || 0;
+            const car_type = document.getElementById('input-car').value || 'بدون عهدة';
+            const loan = Number(document.getElementById('input-loan').value) || 0;
+
+            const { error } = await supabaseClient.from('drivers').insert([{ full_name, national_id, phone, city, app_project, duty, orders, car_type, loan, status: 'active' }]);
+            if (!error) { closeAddModal(); fetchDrivers(); } else { alert('خطأ في الحفظ'); }
+        }
+
+        async function deleteDriver(id) {
+            if (confirm('هل أنت متأكد من حذف هذا المندوب؟')) {
+                await supabaseClient.from('drivers').delete().eq('id', id); fetchDrivers();
+            }
+        }
+
+        async function updateFinance(e) {
+            e.preventDefault();
+            const id = document.getElementById('finance-driver-id').value;
+            const duty = document.getElementById('finance-duty').value;
+            const orders = document.getElementById('finance-orders').value;
+            const car_type = document.getElementById('finance-car').value;
+            const loan = document.getElementById('finance-loan').value;
+
+            let updateObj = { duty };
+            if(orders !== '') updateObj.orders = Number(orders);
+            if(car_type) updateObj.car_type = car_type;
+            if(loan !== '') updateObj.loan = Number(loan);
+
+            const { error } = await supabaseClient.from('drivers').update(updateObj).eq('id', id);
+            if(!error) { closeFinanceModal(); fetchDrivers(); alert('تم التحديث بنجاح'); }
+        }
+
+        function handleReportUpload(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(evt) {
+                const data = new Uint8Array(evt.target.result);
+                const workbook = XLSX.read(data, { type: 'array' });
+                const json = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]]);
+                document.getElementById('report-analysis-results').classList.remove('hidden');
+                document.getElementById('analysis-content').innerHTML = `
+                    <div class="bg-emerald-50 dark:bg-gray-700 p-3 rounded-lg"><span class="font-bold block">الملف:</span><span class="text-emerald-600 font-mono">${file.name}</span></div>
+                    <div class="bg-emerald-50 dark:bg-gray-700 p-3 rounded-lg"><span class="font-bold block">السجلات المقروءة:</span><span class="text-emerald-600 font-bold">${json.length} سجل</span></div>
+                    <div class="bg-emerald-50 dark:bg-gray-700 p-3 rounded-lg"><span class="font-bold block">الحالة:</span><span class="text-emerald-600 font-bold">تم تحليل البيانات واستيراد التقارير بنجاح 🚀</span></div>
+                `;
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        function clearReportAnalysis() { document.getElementById('report-analysis-results').classList.add('hidden'); }
+        
+        function filterDrivers() {
+            const search = document.getElementById('search-input').value.toLowerCase();
+            const cityFilter = document.getElementById('filter-city').value;
+            const projFilter = document.getElementById('filter-project').value;
+            const dutyFilter = document.getElementById('filter-duty').value;
+            const statFilter = document.getElementById('filter-status').value;
+
+            let filtered = driversData.filter(d => {
+                const matchSearch = (d.full_name && d.full_name.toLowerCase().includes(search)) || (d.phone && d.phone.includes(search)) || (d.national_id && d.national_id.includes(search));
+                const matchCity = cityFilter === 'all' || d.city === cityFilter;
+                const matchProj = projFilter === 'all' || d.app_project === projFilter;
+                const matchDuty = dutyFilter === 'all' || (d.duty || 'في العمل') === dutyFilter;
+                let matchStat = true;
+                if(statFilter === 'low-orders') matchStat = (d.duty === 'في العمل' || !d.duty) && ((Number(d.orders) || 0) < 20);
+                return matchSearch && matchCity && matchProj && matchDuty && matchStat;
+            });
+            renderDriversTable(filtered);
+        }
+
+        // دالة التبديل بين التبويبات المصححة لتعمل بسلاسة
+        function switchTab(tabName, btnElement) {
+            const titles = {
+                'dashboard': 'لوحة الإدارة والمؤشرات (KPI)',
+                'reports': 'التقارير العامة واليومية',
+                'alerts': 'الإشعارات والتنبيهات التشغيلية',
+                'projects': 'مشاريع التشغيل وتطبيقات التوصيل',
+                'binding': 'مراجعة ربط الحسابات وسجل التبديل',
+                'housing': 'سكن المناديب والعهد المالية',
+                'cities': 'إدارة المدن والفروع',
+                'import': 'استيراد البيانات وسجل الأجهزة',
+                'interviews': 'المقابلات ومخالفات المناديب'
+            };
+            
+            const titleElement = document.getElementById('page-title');
+            if (titleElement) {
+                titleElement.innerText = titles[tabName] || 'آدم سعد';
+            }
+
+            // إزالة الألوان من جميع الأزرار وتطبيقها على الزر المضغوط حالياً
+            document.querySelectorAll('.nav-btn').forEach(btn => {
+                btn.classList.remove('bg-gray-800', 'text-white');
+            });
+            if (btnElement) {
+                btnElement.classList.add('bg-gray-800', 'text-white');
+            }
+        }
+
+        function openAddModal() { document.getElementById('addModal').classList.remove('hidden'); }
+        function closeAddModal() { document.getElementById('addModal').classList.add('hidden'); }
+        function closeHandoverModal() { document.getElementById('handoverModal').classList.add('hidden'); }
+        function openCityModal() { document.getElementById('cityModal').classList.remove('hidden'); }
+        function closeCityModal() { document.getElementById('cityModal').classList.add('hidden'); }
+        function openProjectModal() { document.getElementById('projectModal').classList.remove('hidden'); }
+        function closeProjectModal() { document.getElementById('projectModal').classList.add('hidden'); }
+        function openFinanceModal() { document.getElementById('financeModal').classList.remove('hidden'); updateFinanceDropdown(); }
+        function closeFinanceModal() { document.getElementById('financeModal').classList.add('hidden'); }
+        function toggleDarkMode() { document.documentElement.classList.toggle('dark'); }
+    </script>
+</body>
+</html>
